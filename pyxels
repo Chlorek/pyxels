@@ -1,0 +1,310 @@
+#!/bin/python3
+
+'''
+pyxels - simple screen capture tool for Linux
+Copyright (C) 2017 Chlorek
+
+This file is part of pyxels.
+
+Pyxels is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 2 of the License, or
+(at your option) any later version.
+
+Pyxels is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Pyxels.  If not, see <http://www.gnu.org/licenses/>.
+'''
+
+import argparse
+import sys
+import subprocess
+import pexpect
+import copy
+import os
+import signal
+import glob
+import shutil
+from shutil import copyfile
+import datetime
+import webbrowser
+
+from Xlib import X, display, Xutil, xobject, Xcursorfont
+from Xlib.ext import randr
+
+import requests
+from requests.auth import HTTPBasicAuth
+
+watch_tmpdir = '/tmp/pyxels'
+
+# ffmpeg process
+proc = None
+# ffmpeg command for watch mode
+watch_command = None
+watch_output = None
+watch_restarted = True
+
+class XSelect:
+    def __init__(self, display):
+        self.d = display
+        self.screen = self.d.screen()
+        # desktop window
+        self.window = self.screen.root
+
+        #cursor = xobject.cursor.Cursor(self.d, Xcursorfont.crosshair)
+        #cursor = self.d.create_resource_object('cursor', Xcursorfont.X_cursor)
+        cursor = X.NONE
+
+        self.window.grab_pointer(1, X.PointerMotionMask | X.ButtonReleaseMask | X.ButtonPressMask,
+            X.GrabModeAsync, X.GrabModeAsync, X.NONE, cursor, X.CurrentTime)
+        self.window.grab_keyboard(1, X.GrabModeAsync, X.GrabModeAsync, X.CurrentTime)
+
+        colormap = self.screen.default_colormap
+        color = colormap.alloc_color(0, 0, 0)
+        # xor so selection is visible over every color
+        xor_color = color.pixel ^ 0xffffff
+
+        self.gc = self.window.create_gc(
+            line_width = 2,
+            line_style = X.LineSolid,
+            fill_style = X.FillOpaqueStippled,
+            fill_rule  = X.WindingRule,
+            cap_style  = X.CapButt,
+            join_style = X.JoinMiter,
+            foreground = xor_color,
+            background = self.screen.black_pixel,
+            function = X.GXxor,
+            graphics_exposures = False,
+            subwindow_mode = X.IncludeInferiors,
+        )
+
+        started = False
+        self.start   = dict(x=0, y=0)
+        self.end     = dict(x=0, y=0)
+        selEnd    = None
+        drawlimit = 5
+        i = 0
+
+        while True:
+            e = self.d.next_event()
+            if e.type == X.ButtonPress:
+                # LMB
+                if e.detail == 1:
+                    self.start = dict(x=e.root_x, y=e.root_y)
+                    started = True
+                # RMB
+                elif e.detail == 3:
+                    print('Cancelled.')
+                    self.d.ungrab_pointer(X.CurrentTime)
+                    self.d.ungrab_keyboard(X.CurrentTime)
+                    sys.exit(0)
+            elif e.type == X.ButtonRelease:
+                self.end = dict(x=e.root_x, y=e.root_y)
+                if selEnd:
+                    self.draw_rectangle(self.start, selEnd)
+                break
+            elif e.type == X.MotionNotify and started:
+                i += 1
+                if i % drawlimit != 0:
+                    continue
+                if selEnd:
+                    self.draw_rectangle(self.start, selEnd)
+                selEnd = dict(x=e.root_x, y=e.root_y)
+                self.draw_rectangle(self.start, selEnd)
+            elif e.type == X.KeyPress:
+                print('Cancelled.')
+                self.d.ungrab_pointer(X.CurrentTime)
+                self.d.ungrab_keyboard(X.CurrentTime)
+                sys.exit(0)
+
+        self.d.ungrab_pointer(X.CurrentTime)
+        self.d.ungrab_keyboard(X.CurrentTime)
+        self.d.flush()
+
+        self.normalize_dimensions(self.start, self.end)
+        if self.end['x'] - self.start['x'] <= 3 or self.end['y'] - self.start['y'] <= 3:
+            print('Empty selection, exiting.')
+            sys.exit(0)
+
+    # NOTICE: overwrites passed variables
+    def normalize_dimensions(self, start, end):
+        if start['x'] > end['x']:
+            start['x'], end['x'] = end['x'], start['x']
+        if start['y'] > end['y']:
+            start['y'], end['y'] = end['y'], start['y']
+
+    def draw_rectangle(self, start, end):
+        startCpy, endCpy = copy.deepcopy(start), copy.deepcopy(end)
+        self.normalize_dimensions(startCpy, endCpy)
+        self.window.rectangle(self.gc, startCpy['x'], startCpy['y'],
+            endCpy['x'] - startCpy['x'], endCpy['y'] - startCpy['y'])
+
+def copy_clips(filesDir, dest):
+    i = 0
+    while True:
+        try:
+            shutil.copy(filesDir + '/out' + str(i) + '.mp4', dest + datetime.datetime.today().strftime("%Y-%m-%d_%H-%M-%S__") + str(i) + '.mp4')
+            i += 1
+        except FileNotFoundError:
+            break
+
+def delete_by_wildcard(files):
+    for file in glob.glob(files):
+        os.remove(file)
+
+# catches RTMIN+5, saves video in watch mode
+def signal_save_buffer(sig, frame):
+    global proc
+    global watch_command
+    global watch_restarted
+    if proc != None and watch_command != None:
+        proc.send('q')
+        print('Waiting for ffmpeg to finish before saving...')
+        proc.expect(pexpect.EOF)
+        print('ffmpeg finished, copying...')
+        copy_clips(watch_tmpdir, watch_output)
+        delete_by_wildcard(watch_tmpdir + '/*.mp4')
+        proc = pexpect.spawn(watch_command, timeout=None)
+        print('ffmpeg restarted and watch continues.')
+        watch_restarted = True
+    else:
+        print('ffmpeg is not running, is watch really running?')
+
+# catches RTMIN+6, works for both - record and watch mode
+def signal_stop_recording(sig, frame):
+    global proc
+    if proc != None:
+        proc.send('q')
+        print('Waiting for ffmpeg to finish...')
+        proc.expect(pexpect.EOF)
+        print('ffmpeg finished.')
+    else:
+        print('ffmpeg is not running, is recording really running?')
+
+def get_target_selection(is_fullscreen):
+    d = display.Display()
+    if is_fullscreen == True:
+        # The following code needs fix for multi-monitor setups
+        scrn = d.screen()
+        win = scrn.root.create_window(0, 0, 1, 1, 1, scrn.root_depth)
+        mode = randr.get_screen_resources(win).modes[0]
+        return dict(x=0, y=0), dict(x=mode.width, y=mode.height)
+    else:
+        print('Waiting for selection...')
+        sel = XSelect(d)
+        return sel.start, sel.end
+
+def main():
+    global proc
+    global watch_command
+    global watch_output
+    global watch_restarted
+    parser = argparse.ArgumentParser(prog='pyxels', description='simple yet powerfull screen capture tool with uploading',
+                                   epilog='Author: Chlorek <mentatspace@protonmail.com> | License: GNU GPL v2')
+    # Required
+    parser.add_argument('action', action='store', choices=['screenshot','record','watch'],
+                        help='what pyxels are supposed to do')
+    parser.add_argument('output', action='store', help='output file')
+    # Optional
+    parser.add_argument('-r', '--region', action='store_true', help='select capture region')
+    parser.add_argument('-f', '--framerate', dest='framerate', type=int, default=25,
+                        help='framerate for recording (default 25)');
+    parser.add_argument('-e', '--encoder', dest='encname', type=str, default='h264_nvenc',
+                        help='ffmpeg encoder name used for recording (default h265_nvenc)');
+    parser.add_argument('-b', '--buffer', dest='buffer', type=int, default=5,
+                        help='how many minutes to buffer in watch mode (default 5)');
+    parser.add_argument('-s', '--send', dest='address', action='store', type=str, default=None,
+                        help='upload captured file to pyxels script at given address',)
+    parser.add_argument('-u', '--user', dest='user', action='store', type=str, default=None,
+                        help='username for upload secured with http basic auth, use with -p',)
+    parser.add_argument('-p', '--password', dest='password', action='store', type=str, default=None,
+                        help='password for upload secured with http basic auth, use with -u',)
+
+    args = parser.parse_args()
+
+    pathSeg = args.output.rsplit('/', 1)
+    ext = pathSeg[-1].rsplit('.', 1)
+    if len(ext) != 2:
+        print('Output filename requires extension!')
+        sys.exit(0)
+
+    if ext[0] == 'auto':
+        args.output = (pathSeg[0] + '/' if len(pathSeg) == 2 else '') + datetime.datetime.today().strftime("%Y-%m-%d_%H-%M-%S.") + ext[1]
+
+    watch_output = (pathSeg[0] + '/' if len(pathSeg) == 2 else '')
+
+    start, end = get_target_selection(False if args.region else True)
+    try:
+        if args.action == 'screenshot':
+            print('Screenshot from {:d}x{:d} to {:d}x{:d}.'.format(start['x'], start['y'], end['x'], end['y']))
+            command = 'ffmpeg -f x11grab -s {:d}x{:d} -i :0.0+{:d},{:d} -vframes 1 {:s}'.format(
+                end['x'] - start['x'], end['y'] - start['y'], start['x'], start['y'], args.output)
+            proc = pexpect.spawn(command)
+            # auto-answer yes to overwrite
+            proc.sendline('y')
+            print('Waiting for ffmpeg to finish...')
+            proc.expect(pexpect.EOF)
+        elif args.action == 'record':
+            print('Recording from {:d}x{:d} to {:d}x{:d}.'.format(start['x'], start['y'], end['x'], end['y']))
+            # tmp dir may be usable if you want to save somewhere your videos for uploading
+            if not os.path.exists(watch_tmpdir):
+                os.makedirs(watch_tmpdir)
+            command = 'ffmpeg -f x11grab -r {:d} -s {:d}x{:d} -i :0.0+{:d},{:d} -vcodec {:s} {:s}'.format(
+                args.framerate, end['x'] - start['x'], end['y'] - start['y'], start['x'], start['y'], args.encname, args.output)
+            proc = pexpect.spawn(command, timeout=None)
+            # auto-answer yes to overwrite
+            proc.sendline('y')
+            signal.signal(signal.SIGRTMIN+6, signal_stop_recording)
+            print('Signal RTMIN+6 to stop.')
+            proc.expect(pexpect.EOF)
+        elif args.action == 'watch':
+            print('NOTICE: To save your disk life (especially SSD) make sure /tmp is mounted in RAM!')
+            print('Watching (from {:d}x{:d} to {:d}x{:d}) so you don\'t miss a thing.'.format(start['x'], start['y'], end['x'], end['y']))
+            if not os.path.exists(watch_tmpdir):
+                os.makedirs(watch_tmpdir)
+            delete_by_wildcard(watch_tmpdir + '/*.mp4')
+            watch_command = ('ffmpeg -f x11grab -r {:d} -s {:d}x{:d} -i :0.0+{:d},{:d} -vcodec {:s} '
+                '-f segment -segment_list {:s}/out.list -segment_time 10 -segment_wrap {:d} -reset_timestamps 1 -strftime 0 {:s}/out%d.mp4').format(
+                args.framerate, end['x'] - start['x'], end['y'] - start['y'], start['x'], start['y'], args.encname, watch_tmpdir, args.buffer, watch_tmpdir)
+            proc = pexpect.spawn(watch_command, timeout=None)
+            signal.signal(signal.SIGRTMIN+5, signal_save_buffer)
+            signal.signal(signal.SIGRTMIN+6, signal_stop_recording)
+            print('Signal RTMIN+6 to stop, RTMIN+5 to save.')
+            while watch_restarted:
+                watch_restarted = False
+                proc.expect(pexpect.EOF)
+
+        if args.address != None:
+            if args.action != 'watch':
+                print('Uploading to {:s}...'.format(args.address))
+                with open(args.output, 'rb') as upfile:
+                    response = requests.post(args.address, files={'file': upfile},
+                        auth=(HTTPBasicAuth(args.user, args.password) if args.user != None and args.password != None else None))
+                    if response.status_code == 200:
+                        if response.text.startswith('http'):
+                            webbrowser.open(response.text, new=0)
+                        else:
+                            print('Server response is not resource: ' + response.text)
+                    elif response.status_code == 401:
+                        print('Provided credetentials are wrong!')
+                    elif response.status_code == 404:
+                        print('Upload script not found!')
+                    elif response.status_code == 413:
+                        print('File too big (check both - php.ini and httpd conf)!')
+                    elif response.status_code == 500:
+                        print('Server error!')
+                    else:
+                        print('Server response: ' + str(response.status_code))
+                delete_by_wildcard(args.output)
+            else:
+                print('Upload is unavailable in watch mode.')
+        print('All done, exiting.')
+    except FileNotFoundError:
+        print('ffmpeg could not be found!') #may also be in case of uploaded file
+
+if __name__ == "__main__":
+    main()
