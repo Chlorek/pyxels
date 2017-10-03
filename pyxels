@@ -214,6 +214,8 @@ def main():
                         help='framerate for recording (default 25)');
     parser.add_argument('-e', '--encoder', dest='encname', type=str, default='h264_nvenc',
                         help='ffmpeg encoder name used for recording (default h265_nvenc)');
+    parser.add_argument('-vb', '--vbitrate', dest='bitrate', type=str, default=None,
+                        help='overrides default bitrate (use if quality for given codec is not sufficient)');
     parser.add_argument('-b', '--buffer', dest='buffer', type=int, default=5,
                         help='how many minutes to buffer in watch mode (default 5)');
     parser.add_argument('-s', '--send', dest='address', action='store', type=str, default=None,
@@ -233,8 +235,9 @@ def main():
 
     if ext[0] == 'auto':
         args.output = (pathSeg[0] + '/' if len(pathSeg) == 2 else '') + datetime.datetime.today().strftime("%Y-%m-%d_%H-%M-%S.") + ext[1]
-
     watch_output = (pathSeg[0] + '/' if len(pathSeg) == 2 else '')
+
+    bitrate = ('' if args.bitrate == None else '-vb ' + args.bitrate)
 
     start, end = get_target_selection(False if args.region else True)
     signal.signal(signal.SIGRTMIN+5, signal_save_buffer)
@@ -254,8 +257,8 @@ def main():
             # tmp dir may be usable if you want to save somewhere your videos for uploading
             if not os.path.exists(watch_tmpdir):
                 os.makedirs(watch_tmpdir)
-            command = 'ffmpeg -f x11grab -r {:d} -s {:d}x{:d} -i :0.0+{:d},{:d} -vcodec {:s} {:s}'.format(
-                args.framerate, end['x'] - start['x'], end['y'] - start['y'], start['x'], start['y'], args.encname, args.output)
+            command = 'ffmpeg -f x11grab -r {:d} -s {:d}x{:d} -i :0.0+{:d},{:d} -vcodec {:s} {:s} {:s}'.format(
+                args.framerate, end['x'] - start['x'], end['y'] - start['y'], start['x'], start['y'], args.encname, bitrate, args.output)
             proc = pexpect.spawn(command, timeout=None)
             # auto-answer yes to overwrite
             proc.sendline('y')
@@ -268,9 +271,9 @@ def main():
                 os.makedirs(watch_tmpdir)
             else:
                 delete_by_wildcard(watch_tmpdir + '/*.mp4')
-            watch_command = ('ffmpeg -f x11grab -r {:d} -s {:d}x{:d} -i :0.0+{:d},{:d} -vcodec {:s} '
+            watch_command = ('ffmpeg -f x11grab -r {:d} -s {:d}x{:d} -i :0.0+{:d},{:d} -vcodec {:s} {:s} '
                 '-f segment -segment_list {:s}/out.list -segment_time 60 -segment_wrap {:d} -reset_timestamps 1 -strftime 0 {:s}/out%d.mp4').format(
-                args.framerate, end['x'] - start['x'], end['y'] - start['y'], start['x'], start['y'], args.encname, watch_tmpdir, args.buffer, watch_tmpdir)
+                args.framerate, end['x'] - start['x'], end['y'] - start['y'], start['x'], start['y'], args.encname, bitrate, watch_tmpdir, args.buffer, watch_tmpdir)
             proc = pexpect.spawn(watch_command, timeout=None)
             print('Signal RTMIN+6 to stop, RTMIN+5 to save.')
             while watch_restarted:
