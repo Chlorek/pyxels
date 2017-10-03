@@ -79,3 +79,8 @@ pyxels -s https://yourserver.addr/pyxels.php -u authName -p authPass record auto
 ```
 If everything went okay, pyxels opens web browser with uploaded resource.
 HTTP auth is not required but you *really* should set it up, or eventually use your custom implementation. Leaving it unprotected would let someone to upload whatever he likes to your server - one may upload some executable there which would be terrible - I think I don't have to say it, but better waste some letters than sorry.
+
+# Todo
+Things that need to be there as soon as possible:
+* per session signals (so you can run watch and use video recording without collision)
+* optional audio recording
