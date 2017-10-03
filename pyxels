@@ -22,7 +22,6 @@ along with Pyxels.  If not, see <http://www.gnu.org/licenses/>.
 
 import argparse
 import sys
-import subprocess
 import pexpect
 import copy
 import os
@@ -238,6 +237,8 @@ def main():
     watch_output = (pathSeg[0] + '/' if len(pathSeg) == 2 else '')
 
     start, end = get_target_selection(False if args.region else True)
+    signal.signal(signal.SIGRTMIN+5, signal_save_buffer)
+    signal.signal(signal.SIGRTMIN+6, signal_stop_recording)
     try:
         if args.action == 'screenshot':
             print('Screenshot from {:d}x{:d} to {:d}x{:d}.'.format(start['x'], start['y'], end['x'], end['y']))
@@ -258,7 +259,6 @@ def main():
             proc = pexpect.spawn(command, timeout=None)
             # auto-answer yes to overwrite
             proc.sendline('y')
-            signal.signal(signal.SIGRTMIN+6, signal_stop_recording)
             print('Signal RTMIN+6 to stop.')
             proc.expect(pexpect.EOF)
         elif args.action == 'watch':
@@ -266,13 +266,12 @@ def main():
             print('Watching (from {:d}x{:d} to {:d}x{:d}) so you don\'t miss a thing.'.format(start['x'], start['y'], end['x'], end['y']))
             if not os.path.exists(watch_tmpdir):
                 os.makedirs(watch_tmpdir)
-            delete_by_wildcard(watch_tmpdir + '/*.mp4')
+            else:
+                delete_by_wildcard(watch_tmpdir + '/*.mp4')
             watch_command = ('ffmpeg -f x11grab -r {:d} -s {:d}x{:d} -i :0.0+{:d},{:d} -vcodec {:s} '
-                '-f segment -segment_list {:s}/out.list -segment_time 10 -segment_wrap {:d} -reset_timestamps 1 -strftime 0 {:s}/out%d.mp4').format(
+                '-f segment -segment_list {:s}/out.list -segment_time 60 -segment_wrap {:d} -reset_timestamps 1 -strftime 0 {:s}/out%d.mp4').format(
                 args.framerate, end['x'] - start['x'], end['y'] - start['y'], start['x'], start['y'], args.encname, watch_tmpdir, args.buffer, watch_tmpdir)
             proc = pexpect.spawn(watch_command, timeout=None)
-            signal.signal(signal.SIGRTMIN+5, signal_save_buffer)
-            signal.signal(signal.SIGRTMIN+6, signal_stop_recording)
             print('Signal RTMIN+6 to stop, RTMIN+5 to save.')
             while watch_restarted:
                 watch_restarted = False
