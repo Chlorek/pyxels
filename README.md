@@ -22,6 +22,7 @@ Script is written in Python 3 with use of modules (that you may most likely need
 * pexpect
 * Xlib
 * requests
+
 You may lack something else, I am not really sure what there is by default and what is not, python is not even my language.
 
 The core feature - screen capture is done thanks to **ffmpeg**, so you need this installed. By default video codec **h264_nvenc** is used, which is *not* part of ffmpeg. If your video card supports it then I recommend to compile ffmpeg yourself with support for it (useful if you want to capture some of your games without impact on performance). Colors quality with h264_nvenc is not best, however should be fine if it's for simple, home use.
