@@ -39,16 +39,17 @@ from Xlib.ext import randr
 import requests
 from requests.auth import HTTPBasicAuth
 
-watch_tmpdir = '/tmp/pyxels'
-
 # ffmpeg process
 proc = None
 # ffmpeg command for watch mode
 watch_command = None
+# Where watch buffer is stored
+watch_tmpdir = '/tmp/pyxels'
 watch_output = None
 watch_restarted = True
 watch_merge = False
 
+# This class is based on https://gist.github.com/initbrain/6628609
 class XSelect:
     def __init__(self, display):
         self.d = display
@@ -56,9 +57,9 @@ class XSelect:
         # desktop window
         self.window = self.screen.root
 
-        #cursor = xobject.cursor.Cursor(self.d, Xcursorfont.crosshair)
-        #cursor = self.d.create_resource_object('cursor', Xcursorfont.X_cursor)
         cursor = X.NONE
+        #cursor = xobject.cursor.Cursor(self.d, Xcursorfont.crosshair)
+        # missing function, I can't find: XDefineCursor(self.d, self.window, cursor)
 
         self.window.grab_pointer(1, X.PointerMotionMask | X.ButtonReleaseMask | X.ButtonPressMask,
             X.GrabModeAsync, X.GrabModeAsync, X.NONE, cursor, X.CurrentTime)
@@ -115,7 +116,6 @@ class XSelect:
                 if selEnd:
                     self.draw_rectangle(self.start, selEnd)
                 selEnd = dict(x=e.root_x, y=e.root_y)
-                self.draw_rectangle(self.start, selEnd)
             elif e.type == X.KeyPress:
                 print('Cancelled.')
                 self.d.ungrab_pointer(X.CurrentTime)
@@ -152,7 +152,6 @@ def merge_clips(filesDir, dest):
     mergProc = pexpect.spawn('ffmpeg -f concat -i {:s}/out.list -codec copy {:s}'.format(filesDir, dest + datetime.datetime.today().strftime("%Y-%m-%d_%H-%M-%S.mp4"), timeout=None))
     mergProc.expect(pexpect.EOF)
     print('Merged replay saved.')
-
 
 def copy_clips(filesDir, dest):
     i = 0
@@ -278,9 +277,9 @@ def main():
     start, end = get_target_selection(False if args.region else True)
     for i in range(0, 15):
         if i == args.watchsignal:
-            signal.signal(signal.SIGRTMIN+args.watchsignal, signal_save_buffer)
+            signal.signal(signal.SIGRTMIN+i, signal_save_buffer)
         elif i == args.stopsignal:
-            signal.signal(signal.SIGRTMIN+args.stopsignal, signal_stop_recording)
+            signal.signal(signal.SIGRTMIN+i, signal_stop_recording)
         else:
             signal.signal(signal.SIGRTMIN+i, signal_no_action)
     try:
@@ -298,7 +297,7 @@ def main():
             # tmp dir may be usable if you want to save somewhere your videos for uploading
             if not os.path.exists(watch_tmpdir):
                 os.makedirs(watch_tmpdir)
-            command = 'ffmpeg {:s}-f x11grab -r {:d} -s {:d}x{:d} -i :0.0+{:d},{:d} -vcodec {:s} {:s} {:s}'.format(audio_params,
+            command = 'ffmpeg {:s}-f x11grab -r {:d} c -vcodec {:s} {:s} {:s}'.format(audio_params,
                 args.framerate, end['x'] - start['x'], end['y'] - start['y'], start['x'], start['y'], args.encname, bitrate, args.output)
             proc = pexpect.spawn(command, timeout=None)
             # auto-answer yes to overwrite
@@ -348,7 +347,7 @@ def main():
                 print('Upload is unavailable in watch mode.')
         print('All done, exiting.')
     except FileNotFoundError:
-        print('ffmpeg could not be found!') #may also be in case of uploaded file
+        print('ffmpeg could not be found!') #may also happen in case of uploaded file
 
 if __name__ == "__main__":
     main()
