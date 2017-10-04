@@ -83,4 +83,4 @@ HTTP auth is not required but you *really* should set it up, or eventually use y
 # Todo
 Things that need to be there as soon as possible:
 * per session signals (so you can run watch and use video recording without collision)
-* optional audio recording
+* ~~optional audio recording~~
