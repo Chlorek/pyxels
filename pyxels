@@ -116,6 +116,7 @@ class XSelect:
                 if selEnd:
                     self.draw_rectangle(self.start, selEnd)
                 selEnd = dict(x=e.root_x, y=e.root_y)
+                self.draw_rectangle(self.start, selEnd)
             elif e.type == X.KeyPress:
                 print('Cancelled.')
                 self.d.ungrab_pointer(X.CurrentTime)
@@ -297,7 +298,7 @@ def main():
             # tmp dir may be usable if you want to save somewhere your videos for uploading
             if not os.path.exists(watch_tmpdir):
                 os.makedirs(watch_tmpdir)
-            command = 'ffmpeg {:s}-f x11grab -r {:d} c -vcodec {:s} {:s} {:s}'.format(audio_params,
+            command = 'ffmpeg {:s}-f x11grab -r {:d} -s {:d}x{:d} -i :0.0+{:d},{:d} -vcodec {:s} {:s} {:s}'.format(audio_params,
                 args.framerate, end['x'] - start['x'], end['y'] - start['y'], start['x'], start['y'], args.encname, bitrate, args.output)
             proc = pexpect.spawn(command, timeout=None)
             # auto-answer yes to overwrite
