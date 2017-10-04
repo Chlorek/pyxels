@@ -1,5 +1,6 @@
 # Introduction
 Pyxels is simply just a python script (and optional barebones PHP script) utilizing powers of *ffmpeg* on Linux systems.
+
 Notice: project is far from finished but should work fine.
 
 It is capable of three things:
@@ -13,9 +14,10 @@ It is capable of three things:
 * buffer last minutes (aka shadow-play)
 * custom framerate
 * custom buffer time (for watch mode)
+* possibility to save buffered video in parts or as single file
 * auto-upload via http (with authorization)
 * region selection
-* easily setable encoder (defaults to h264_nvenc, so if you don't like it or have no GPU support - change it)
+* setable encoder (defaults to h264_nvenc, so if you don't like it or have no GPU support - change it)
 
 # Requirements
 Script is written in Python 3 with use of modules (that you may most likely need to install) such as:
@@ -64,6 +66,7 @@ or
 pyxels watch /path/to/whatever.mp4
 ```
 In case of watch: files are stored in different manner. Saved video is stored as series of 1-minute long clips (no worries, there are no frames lost between) in directory specified as output, filename is not used - you have to specify it anyway. Clips are named with date, time and order number.
+You can however set --merge flag to save result as one file. I did not test it with any format but mp4, so it most likely does not work in every scenario yet.
 
 You can also automatically name files in other modes, instead of filename use word **auto**. File extension is still required as output format is based on this - and that brings us to choosing format - that is determined automatically by extension. So if you need quality screenshots save them for example as png, otherwise use jpg.
 

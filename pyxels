@@ -31,6 +31,7 @@ import shutil
 from shutil import copyfile
 import datetime
 import webbrowser
+import fileinput
 
 from Xlib import X, display, Xutil, xobject, Xcursorfont
 from Xlib.ext import randr
@@ -46,6 +47,7 @@ proc = None
 watch_command = None
 watch_output = None
 watch_restarted = True
+watch_merge = False
 
 class XSelect:
     def __init__(self, display):
@@ -142,6 +144,16 @@ class XSelect:
         self.window.rectangle(self.gc, startCpy['x'], startCpy['y'],
             endCpy['x'] - startCpy['x'], endCpy['y'] - startCpy['y'])
 
+def merge_clips(filesDir, dest):
+    i = 0
+    for line in fileinput.input([filesDir + '/out.list'], inplace=True):
+        sys.stdout.write('file {:s}'.format(line))
+    print('Merging...')
+    mergProc = pexpect.spawn('ffmpeg -f concat -i {:s}/out.list -codec copy {:s}'.format(filesDir, dest + datetime.datetime.today().strftime("%Y-%m-%d_%H-%M-%S.mp4"), timeout=None))
+    mergProc.expect(pexpect.EOF)
+    print('Merged replay saved.')
+
+
 def copy_clips(filesDir, dest):
     i = 0
     while True:
@@ -160,12 +172,16 @@ def signal_save_buffer(sig, frame):
     global proc
     global watch_command
     global watch_restarted
+    global watch_merge
     if proc != None and watch_command != None:
         proc.send('q')
         print('Waiting for ffmpeg to finish before saving...')
         proc.expect(pexpect.EOF)
         print('ffmpeg finished, copying...')
-        copy_clips(watch_tmpdir, watch_output)
+        if watch_merge:
+            merge_clips(watch_tmpdir, watch_output)
+        else:
+            copy_clips(watch_tmpdir, watch_output)
         delete_by_wildcard(watch_tmpdir + '/*.mp4')
         proc = pexpect.spawn(watch_command, timeout=None)
         print('ffmpeg restarted and watch continues.')
@@ -202,6 +218,7 @@ def main():
     global watch_command
     global watch_output
     global watch_restarted
+    global watch_merge
     parser = argparse.ArgumentParser(prog='pyxels', description='simple yet powerfull screen capture tool with uploading',
                                    epilog='Author: Chlorek <mentatspace@protonmail.com> | License: GNU GPL v2')
     # Required
@@ -222,6 +239,7 @@ def main():
                         help='specify audio driver (defaults to "default" for PA, "hw:0" for Alsa)');
     parser.add_argument('-b', '--buffer', dest='buffer', type=int, default=5,
                         help='how many minutes to buffer in watch mode (default 5)');
+    parser.add_argument('-m', '--merge', action='store_true', help='merge clips in watch mode')
     parser.add_argument('-s', '--send', dest='address', action='store', type=str, default=None,
                         help='upload captured file to pyxels script at given address',)
     parser.add_argument('-u', '--user', dest='user', action='store', type=str, default=None,
@@ -240,6 +258,8 @@ def main():
     if ext[0] == 'auto':
         args.output = (pathSeg[0] + '/' if len(pathSeg) == 2 else '') + datetime.datetime.today().strftime("%Y-%m-%d_%H-%M-%S.") + ext[1]
     watch_output = (pathSeg[0] + '/' if len(pathSeg) == 2 else '')
+    if args.merge:
+        watch_merge = True
 
     bitrate = ('' if args.bitrate == None else '-vb ' + args.bitrate)
 
