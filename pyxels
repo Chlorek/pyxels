@@ -167,7 +167,7 @@ def delete_by_wildcard(files):
     for file in glob.glob(files):
         os.remove(file)
 
-# catches RTMIN+5, saves video in watch mode
+# saves video in watch mode
 def signal_save_buffer(sig, frame):
     global proc
     global watch_command
@@ -182,14 +182,14 @@ def signal_save_buffer(sig, frame):
             merge_clips(watch_tmpdir, watch_output)
         else:
             copy_clips(watch_tmpdir, watch_output)
-        delete_by_wildcard(watch_tmpdir + '/*.mp4')
+        delete_by_wildcard(watch_tmpdir + '/out*.mp4')
         proc = pexpect.spawn(watch_command, timeout=None)
         print('ffmpeg restarted and watch continues.')
         watch_restarted = True
     else:
         print('ffmpeg is not running, is watch really running?')
 
-# catches RTMIN+6, works for both - record and watch mode
+# stops both: record and watch mode
 def signal_stop_recording(sig, frame):
     global proc
     if proc != None:
@@ -199,6 +199,9 @@ def signal_stop_recording(sig, frame):
         print('ffmpeg finished.')
     else:
         print('ffmpeg is not running, is recording really running?')
+
+def signal_no_action(sig, frame):
+    pass
 
 def get_target_selection(is_fullscreen):
     d = display.Display()
@@ -237,15 +240,19 @@ def main():
                         choices=['pulse', 'alsa'], help='specify audio driver (none by default)');
     parser.add_argument('-ad', '--audiodev', dest='audio_device', action='store', default=None,
                         help='specify audio driver (defaults to "default" for PA, "hw:0" for Alsa)');
-    parser.add_argument('-b', '--buffer', dest='buffer', type=int, default=5,
+    parser.add_argument('-b', '--buffer', dest='buffer', type=int, default=5, metavar='MINUTES',
                         help='how many minutes to buffer in watch mode (default 5)');
     parser.add_argument('-m', '--merge', action='store_true', help='merge clips in watch mode')
     parser.add_argument('-s', '--send', dest='address', action='store', type=str, default=None,
-                        help='upload captured file to pyxels script at given address',)
+                        help='upload captured file to pyxels script at given address')
     parser.add_argument('-u', '--user', dest='user', action='store', type=str, default=None,
-                        help='username for upload secured with http basic auth, use with -p',)
+                        help='username for upload secured with http basic auth, use with -p')
     parser.add_argument('-p', '--password', dest='password', action='store', type=str, default=None,
-                        help='password for upload secured with http basic auth, use with -u',)
+                        help='password for upload secured with http basic auth, use with -u')
+    parser.add_argument('-ws', '--watchsignal', action='store', type=int, default=5, metavar='{0-15}',
+                        choices=range(0,16), help='which RTMIN signal to expect to save buffered video')
+    parser.add_argument('-ss', '--stopsignal', action='store', type=int, default=6, metavar='{0-15}',
+                        choices=range(0,16), help='which RTMIN signal to expect to stop recording')
 
     args = parser.parse_args()
 
@@ -269,8 +276,13 @@ def main():
                     if args.audio_driver != None else '')
 
     start, end = get_target_selection(False if args.region else True)
-    signal.signal(signal.SIGRTMIN+5, signal_save_buffer)
-    signal.signal(signal.SIGRTMIN+6, signal_stop_recording)
+    for i in range(0, 15):
+        if i == args.watchsignal:
+            signal.signal(signal.SIGRTMIN+args.watchsignal, signal_save_buffer)
+        elif i == args.stopsignal:
+            signal.signal(signal.SIGRTMIN+args.stopsignal, signal_stop_recording)
+        else:
+            signal.signal(signal.SIGRTMIN+i, signal_no_action)
     try:
         if args.action == 'screenshot':
             print('Screenshot from {:d}x{:d} to {:d}x{:d}.'.format(start['x'], start['y'], end['x'], end['y']))
@@ -291,20 +303,21 @@ def main():
             proc = pexpect.spawn(command, timeout=None)
             # auto-answer yes to overwrite
             proc.sendline('y')
-            print('Signal RTMIN+6 to stop.')
+            print('Signal RTMIN+{:d} to stop.'.format(args.stopsignal))
             proc.expect(pexpect.EOF)
         elif args.action == 'watch':
-            print('NOTICE: To save your disk life (especially SSD) make sure /tmp is mounted in RAM!')
+            if args.output.startswith('/tmp/'):
+                print('NOTICE: To save your disk life (especially SSD) make sure /tmp is mounted in RAM!')
             print('Watching (from {:d}x{:d} to {:d}x{:d}) so you don\'t miss a thing.'.format(start['x'], start['y'], end['x'], end['y']))
             if not os.path.exists(watch_tmpdir):
                 os.makedirs(watch_tmpdir)
             else:
-                delete_by_wildcard(watch_tmpdir + '/*.mp4')
+                delete_by_wildcard(watch_tmpdir + '/out*.mp4')
             watch_command = ('ffmpeg {:s}-f x11grab -r {:d} -s {:d}x{:d} -i :0.0+{:d},{:d} -vcodec {:s} {:s} '
                 '-f segment -segment_list {:s}/out.list -segment_time 60 -segment_wrap {:d} -reset_timestamps 1 -strftime 0 {:s}/out%d.mp4').format(audio_params,
                 args.framerate, end['x'] - start['x'], end['y'] - start['y'], start['x'], start['y'], args.encname, bitrate, watch_tmpdir, args.buffer, watch_tmpdir)
             proc = pexpect.spawn(watch_command, timeout=None)
-            print('Signal RTMIN+6 to stop, RTMIN+5 to save.')
+            print('Signal RTMIN+{:d} to stop, RTMIN+{:d} to save.'.format(args.stopsignal, args.watchsignal))
             while watch_restarted:
                 watch_restarted = False
                 proc.expect(pexpect.EOF)

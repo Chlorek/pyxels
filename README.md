@@ -18,6 +18,7 @@ It is capable of three things:
 * auto-upload via http (with authorization)
 * region selection
 * setable encoder (defaults to h264_nvenc, so if you don't like it or have no GPU support - change it)
+* if set correctly - many instances can be run at once
 
 # Requirements
 Script is written in Python 3 with use of modules (that you may most likely need to install) such as:
@@ -44,7 +45,8 @@ use your window mananager or some sort of program to bind commands controlling v
 * pkill -RTMIN+5 pyxels
 * pkill -RTMIN+6 pyxels
 
-The first one is used to save video buffered in **watch mode**, the other stops both: **recording** and **watch** mode.
+The first one is used to save video buffered in **watch mode**, the other stops both: **recording** and **watch** mode. These are signals set by default,
+it is possible to overwrite (*--ss* and *--ws*) them to make running multiple instances possible (for example when you run watch mode all the time in background and trying to use video capture as standalone function).
 
 Test all three actions to ensure they work fine then proceed to binding screenshot / video etc. as you like.
 
@@ -85,5 +87,5 @@ HTTP auth is not required but you *really* should set it up, or eventually use y
 
 # Todo
 Things that need to be there as soon as possible:
-* per session signals (so you can run watch and use video recording without collision)
+* ~~per session signals (so you can run watch and use video recording without collision)~~
 * ~~optional audio recording~~
