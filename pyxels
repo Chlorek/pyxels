@@ -49,7 +49,7 @@ watch_output = None
 watch_restarted = True
 watch_merge = False
 
-# This class is based on https://gist.github.com/initbrain/6628609
+# XSelect class is based on https://gist.github.com/initbrain/6628609
 class XSelect:
     def __init__(self, display):
         self.d = display
@@ -187,7 +187,7 @@ def signal_save_buffer(sig, frame):
         print('ffmpeg restarted and watch continues.')
         watch_restarted = True
     else:
-        print('ffmpeg is not running, is watch really running?')
+        print('ffmpeg is not running, is watch really active?')
 
 # stops both: record and watch mode
 def signal_stop_recording(sig, frame):
@@ -198,7 +198,7 @@ def signal_stop_recording(sig, frame):
         proc.expect(pexpect.EOF)
         print('ffmpeg finished.')
     else:
-        print('ffmpeg is not running, is recording really running?')
+        print('ffmpeg is not running, is recording really active?')
 
 def signal_no_action(sig, frame):
     pass
@@ -284,6 +284,9 @@ def main():
         else:
             signal.signal(signal.SIGRTMIN+i, signal_no_action)
     try:
+        # tmp dir may be usable if you want to save somewhere your videos for uploading
+        if not os.path.exists(watch_tmpdir):
+             os.makedirs(watch_tmpdir)
         if args.action == 'screenshot':
             print('Screenshot from {:d}x{:d} to {:d}x{:d}.'.format(start['x'], start['y'], end['x'], end['y']))
             command = 'ffmpeg -f x11grab -s {:d}x{:d} -i :0.0+{:d},{:d} -vframes 1 {:s}'.format(
@@ -295,9 +298,6 @@ def main():
             proc.expect(pexpect.EOF)
         elif args.action == 'record':
             print('Recording from {:d}x{:d} to {:d}x{:d}.'.format(start['x'], start['y'], end['x'], end['y']))
-            # tmp dir may be usable if you want to save somewhere your videos for uploading
-            if not os.path.exists(watch_tmpdir):
-                os.makedirs(watch_tmpdir)
             command = 'ffmpeg {:s}-f x11grab -r {:d} -s {:d}x{:d} -i :0.0+{:d},{:d} -vcodec {:s} {:s} {:s}'.format(audio_params,
                 args.framerate, end['x'] - start['x'], end['y'] - start['y'], start['x'], start['y'], args.encname, bitrate, args.output)
             proc = pexpect.spawn(command, timeout=None)
@@ -309,9 +309,7 @@ def main():
             if args.output.startswith('/tmp/'):
                 print('NOTICE: To save your disk life (especially SSD) make sure /tmp is mounted in RAM!')
             print('Watching (from {:d}x{:d} to {:d}x{:d}) so you don\'t miss a thing.'.format(start['x'], start['y'], end['x'], end['y']))
-            if not os.path.exists(watch_tmpdir):
-                os.makedirs(watch_tmpdir)
-            else:
+            if os.path.exists(watch_tmpdir):
                 delete_by_wildcard(watch_tmpdir + '/out*.mp4')
             watch_command = ('ffmpeg {:s}-f x11grab -r {:d} -s {:d}x{:d} -i :0.0+{:d},{:d} -vcodec {:s} {:s} '
                 '-f segment -segment_list {:s}/out.list -segment_time 60 -segment_wrap {:d} -reset_timestamps 1 -strftime 0 {:s}/out%d.mp4').format(audio_params,
