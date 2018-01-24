@@ -240,8 +240,8 @@ def main():
                         choices=['pulse', 'alsa'], help='specify audio driver (none by default)');
     parser.add_argument('-ad', '--audiodev', dest='audio_device', action='store', default=None,
                         help='specify audio driver (defaults to "default" for PA, "hw:0" for Alsa)');
-    parser.add_argument('-b', '--buffer', dest='buffer', type=int, default=5, metavar='MINUTES',
-                        help='how many minutes to buffer in watch mode (default 5)');
+    parser.add_argument('-b', '--buffer', dest='buffer', type=int, default=3, metavar='MINUTES',
+                        help='how many minutes to buffer in watch mode (default 3)');
     parser.add_argument('-m', '--merge', action='store_true', help='merge clips in watch mode')
     parser.add_argument('-s', '--send', dest='address', action='store', type=str, default=None,
                         help='upload captured file to pyxels script at given address')
@@ -272,7 +272,7 @@ def main():
 
     if args.audio_driver != None and args.audio_device == None:
         args.audio_device = ('default' if args.audio_driver == 'pulse' else 'hw:0')
-    audio_params = ('-f {:s} -i {:s} '.format(args.audio_driver, args.audio_device)
+    audio_params = ('-f {:s} -i {:s}'.format(args.audio_driver, args.audio_device)
                     if args.audio_driver != None else '')
 
     start, end = get_target_selection(False if args.region else True)
@@ -298,7 +298,7 @@ def main():
             proc.expect(pexpect.EOF)
         elif args.action == 'record':
             print('Recording from {:d}x{:d} to {:d}x{:d}.'.format(start['x'], start['y'], end['x'], end['y']))
-            command = 'ffmpeg {:s}-f x11grab -r {:d} -s {:d}x{:d} -i :0.0+{:d},{:d} -vcodec {:s} {:s} {:s}'.format(audio_params,
+            command = 'ffmpeg {:s} -f x11grab -r {:d} -s {:d}x{:d} -i :0.0+{:d},{:d} -vcodec {:s} {:s} {:s}'.format(audio_params,
                 args.framerate, end['x'] - start['x'], end['y'] - start['y'], start['x'], start['y'], args.encname, bitrate, args.output)
             proc = pexpect.spawn(command, timeout=None)
             # auto-answer yes to overwrite
@@ -311,7 +311,7 @@ def main():
             print('Watching (from {:d}x{:d} to {:d}x{:d}) so you don\'t miss a thing.'.format(start['x'], start['y'], end['x'], end['y']))
             if os.path.exists(watch_tmpdir):
                 delete_by_wildcard(watch_tmpdir + '/out*.mp4')
-            watch_command = ('ffmpeg {:s}-f x11grab -r {:d} -s {:d}x{:d} -i :0.0+{:d},{:d} -vcodec {:s} {:s} '
+            watch_command = ('ffmpeg {:s} -f x11grab -r {:d} -s {:d}x{:d} -i :0.0+{:d},{:d} -vcodec {:s} {:s} '
                 '-f segment -segment_list {:s}/out.list -segment_time 60 -segment_wrap {:d} -reset_timestamps 1 -strftime 0 {:s}/out%d.mp4').format(audio_params,
                 args.framerate, end['x'] - start['x'], end['y'] - start['y'], start['x'], start['y'], args.encname, bitrate, watch_tmpdir, args.buffer, watch_tmpdir)
             proc = pexpect.spawn(watch_command, timeout=None)

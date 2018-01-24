@@ -1,8 +1,6 @@
 # Introduction
 Pyxels is simply just a python script (and optional barebones PHP script) utilizing powers of *ffmpeg* on Linux systems.
 
-Notice: project is far from finished but should work fine.
-
 It is capable of three things:
 * screenshots
 * recording
@@ -19,6 +17,7 @@ It is capable of three things:
 * region selection
 * setable encoder (defaults to h264_nvenc, so if you don't like it or have no GPU support - change it)
 * if set correctly - many instances can be run at once
+* easy to enable audio capture (with both: Also or PulseAudio)
 
 # Requirements
 Script is written in Python 3 with use of modules (that you may most likely need to install) such as:
@@ -28,14 +27,17 @@ Script is written in Python 3 with use of modules (that you may most likely need
 
 You may lack something else, I am not really sure what there is by default and what is not, python is not even my language.
 
-The core feature - screen capture is done thanks to **ffmpeg**, so you need this installed. By default video codec **h264_nvenc** is used, which is *not* part of ffmpeg. If your video card supports it then I recommend to compile ffmpeg yourself with support for it (useful if you want to capture some of your games without impact on performance). Colors quality with h264_nvenc is not best, however should be fine if it's for simple, home use.
+The core feature - screen capture is done thanks to **ffmpeg**, so you need this installed. By default video codec **h264_nvenc** is used, which may or may not be available in your ffmpeg version.
+If you do not have ffmpeg with that codec enabled and your graphics card supports it (gtx 660 and up) then I recommend to compile ffmpeg yourself with support for it (useful if you want to capture some of your games without impact on performance). Colors quality with h264_nvenc is not best, however should be fine if it's for simple, home use.
 
 Optionally, one may want to automatically upload his screenshots and videos, in this case you need some web server with PHP.
 
 Any way to execute shell commands with keybinds is highly recommended as pyxels does not come with built-in hot-keys support, it is controlled with signals instead (read installation for details).
 
 # Installation / Usage
-Once you have dependencies installed (I'll link *ffmpeg+nvenc* compilation later) there should be nothing left to do, but launch pyxels in terminal. You may want to make symbolic link inside bin directory for easy access. If you are planning to use *watch mode* you should consider having your */tmp* mounted in RAM - most distributions nowadays do it by default, however it might be good for your disk life to check it.
+Once you have dependencies installed there should be nothing left to do, but launch pyxels in terminal. You may want to make symbolic link inside bin directory for easy access.
+If you are planning to use *watch mode* you should consider having your */tmp* mounted in RAM - most distributions nowadays do it by default, however it might be good for your disk life to check it.
+On the other hand you may have limited RAM, then you have two options: override default buffer location or mount /tmp on disk.
 
 Finally, run it once (without arguments) to see if requirmenets are met.
 
@@ -46,14 +48,16 @@ use your window mananager or some sort of program to bind commands controlling v
 * pkill -RTMIN+6 pyxels
 
 The first one is used to save video buffered in **watch mode**, the other stops both: **recording** and **watch** mode. These are signals set by default,
-it is possible to overwrite (*--ss* and *--ws*) them to make running multiple instances possible (for example when you run watch mode all the time in background and trying to use video capture as standalone function).
+it is possible to overwrite them (*--ss* and *--ws* accordingly) to make running multiple instances possible (for example when you run watch mode all the 
+time in background and trying to use video capture as standalone function).
 
-Test all three actions to ensure they work fine then proceed to binding screenshot / video etc. as you like.
+Test all three actions to ensure they work fine then proceed to binding screenshot / video capture etc. as you like.
 
-Very basic PHP script included along is optional and used just in case you need auto-upload. Simply put it on your http(s) server, then (you should, but not have to) setup htaccess to require basic HTTP authorization to this script and create *uploads* directory (or different, edit *pyxels.php* as you wish).
+Very basic PHP script included along is optional and used just in case you need auto-upload. Simply put it on your http(s) server, then (you should, but not have to)
+setup htaccess to require basic HTTP authorization to this script and create *uploads* directory (or different, edit *pyxels.php* as you wish).
 
 ## So how do I start this script right
-There is **--help** included, however some things are left undocumented and I know some people are scared of CLI for some reason so I will cover some basic things here:
+There is **--help** included, however some things are left undocumented and also I know some people are a bit scared of command-line tools, so I will cover some basic things here:
 
 The most simple way to make use of pyxels is:
 ```
@@ -83,9 +87,10 @@ Auto-upload requires some server-side acceptor program, you can write your own, 
 pyxels -s https://yourserver.addr/pyxels.php -u authName -p authPass record auto.mp4
 ```
 If everything went okay, pyxels opens web browser with uploaded resource.
-HTTP auth is not required but you *really* should set it up, or eventually use your custom implementation. Leaving it unprotected would let someone to upload whatever he likes to your server - one may upload some executable there which would be terrible - I think I don't have to say it, but better waste some letters than sorry.
+HTTP auth is not required but you *really* should set it up, or eventually use your custom auth implementation. Leaving it unprotected would let someone to upload whatever he likes to your server - one may upload some executable there which would be terrible - I think I don't have to say it, but better waste some letters than sorry.
 
 # Todo
-Things that need to be there as soon as possible:
+Feel free to suggest features, changes or even make your own pull request!
 * ~~per session signals (so you can run watch and use video recording without collision)~~
 * ~~optional audio recording~~
+* easy to setup VAAPI/VDPAU encoding as default option (good performance on wider range of hardware)
