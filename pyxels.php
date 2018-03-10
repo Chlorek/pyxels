@@ -83,12 +83,13 @@
                     </style>
                     <script>
                         var color = '#ff0000'
-
+                        var brushSize = 10;
                         var mouseDown = false;
+
                         function draw(event) {
                             if(mouseDown) {
-                                var x = event.x - canvas.offsetLeft;
-                                var y = event.y - canvas.offsetTop;
+                                var x = event.clientX + document.body.scrollLeft + document.documentElement.scrollLeft - canvas.offsetLeft;
+                                var y = event.clientY + document.body.scrollTop + document.documentElement.scrollTop - canvas.offsetTop;
 
                                 ctx.beginPath();
                                 ctx.arc(x, y, brushSize, 0, 2*Math.PI, false);
@@ -110,10 +111,6 @@
                              color = event.target.value;
                         }
 
-                        function init(url){
-
-                        }
-
                         window.onload = function() {
                             var img = new Image();
                             img.onload = function() {
@@ -132,8 +129,6 @@
                             };
                             img.src = "<?php echo 'http://' . $_SERVER['SERVER_NAME'] . '/uploads/' . $_GET['edit'] ?>";
                         };
-
-                        var brushSize = 10;
 
                         function biggerBrush() {
                             brushSize += 2;
@@ -180,7 +175,6 @@
                             <span class="highlight" onclick="save()">Save</span>
                         </div>
                     </div>
-
                 </body>
             </html>
             <?php
