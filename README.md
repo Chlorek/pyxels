@@ -25,6 +25,7 @@ Script is written in Python 3 with use of modules that you may most likely need 
 * pexpect
 * Xlib
 * requests
+
 To enable auto-upload and web-editor features you need:
 * HTTP server with PHP
 
@@ -32,8 +33,6 @@ You may lack something else, I am not really sure what there is by default and w
 
 The core feature - screen capture is done thanks to **ffmpeg**, so you need this installed. By default video codec **h264_nvenc** is used, which may or may not be available in your ffmpeg version.
 If you do not have ffmpeg with that codec enabled and your graphics card supports it (gtx 660 and up) then I recommend to compile ffmpeg yourself with support for it (useful if you want to capture some of your games without impact on performance). Colors quality with h264_nvenc is not best, however should be fine if it's for simple, home use.
-
-Optionally, one may want to automatically upload his screenshots and videos, in this case you need some web server with PHP.
 
 Any way to execute shell commands with keybinds is highly recommended as pyxels does not come with built-in hot-keys support, it is controlled with signals instead (read installation for details).
 
