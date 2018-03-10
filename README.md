@@ -18,12 +18,15 @@ It is capable of three things:
 * setable encoder (defaults to h264_nvenc, so if you don't like it or have no GPU support - change it)
 * if set correctly - many instances can be run at once
 * easy to enable audio capture (with both: Also or PulseAudio)
+* simple web editor for screenshots (part of PHP script)
 
 # Requirements
-Script is written in Python 3 with use of modules (that you may most likely need to install) such as:
+Script is written in Python 3 with use of modules that you may most likely need to install such as:
 * pexpect
 * Xlib
 * requests
+To enable auto-upload and web-editor features you need:
+* HTTP server with PHP
 
 You may lack something else, I am not really sure what there is by default and what is not, python is not even my language.
 
@@ -48,7 +51,7 @@ use your window mananager or some sort of program to bind commands controlling v
 * pkill -RTMIN+6 pyxels
 
 The first one is used to save video buffered in **watch mode**, the other stops both: **recording** and **watch** mode. These are signals set by default,
-it is possible to overwrite them (*--ss* and *--ws* accordingly) to make running multiple instances possible (for example when you run watch mode all the 
+it is possible to overwrite them (*--ss* and *--ws* accordingly) to make running multiple instances possible (for example when you run watch mode all the
 time in background and trying to use video capture as standalone function).
 
 Test all three actions to ensure they work fine then proceed to binding screenshot / video capture etc. as you like.
@@ -94,3 +97,4 @@ Feel free to suggest features, changes or even make your own pull request!
 * ~~per session signals (so you can run watch and use video recording without collision)~~
 * ~~optional audio recording~~
 * easy to setup VAAPI/VDPAU encoding as default option (good performance on wider range of hardware)
+* better web-editor
