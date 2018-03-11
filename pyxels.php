@@ -36,14 +36,14 @@
 
                         #content {
                             margin: 10px auto 0px auto;
-                            width: 600px;
+                            min-width: 600px;
                             text-align: center;
                         }
 
                         #controls {
                             width: 600px;
                             text-align: center;
-                            margin-top: 10px;
+                            margin: 10px auto 0 auto;
                             border-top: 2px solid #888;
                             border-bottom: 2px solid #888;
                             font-weight: bold;
@@ -185,19 +185,20 @@
     else {
         /* You can keep your screenshots named as in request, but this way you
         are vulnerable to having your storage scanned for all possible file-names */
-        //$output = 'uploads/' . basename($_FILES['file']['name']);
+        //$filename = basename($_FILES['file']['name']);
 
+        $outputDir = 'uploads/';
         $ext = pathinfo(basename($_FILES['file']['name']), PATHINFO_EXTENSION);
-        $output = 'uploads/' . bin2hex(openssl_random_pseudo_bytes(16)) . '.' . $ext;
+        $filename = bin2hex(openssl_random_pseudo_bytes(16)) . '.' . $ext;
 
         $tmpName = $_FILES['file']['tmp_name'];
-        move_uploaded_file($tmpName, $output);
+        move_uploaded_file($tmpName, $outputDir . $filename);
         //echo $_FILES['file']['error'];
 
-        // Output direct URL to image or to edit-page
+        // Output url to vedit or view image
         if(isset($_GET['edit']))
-            echo 'http://' . $_SERVER['SERVER_NAME'] . $_SERVER["DOCUMENT_URI"] . '?edit=' . $_GET['img'];
+            echo 'http://' . $_SERVER['SERVER_NAME'] . $_SERVER['DOCUMENT_URI'] . '?edit=' . $filename;
         else
-            echo 'http://' . $_SERVER['SERVER_NAME'] . '/' . $output;
+            echo 'http://' . $_SERVER['SERVER_NAME'] . '/pyview.php?' . $filename;
     }
 ?>

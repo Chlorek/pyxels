@@ -17,7 +17,7 @@ It is capable of three things:
 * region selection
 * setable encoder (defaults to h264_nvenc, so if you don't like it or have no GPU support - change it)
 * if set correctly - many instances can be run at once
-* easy to enable audio capture (with both: Also or PulseAudio)
+* easy to enable audio capture (with both: Alsa and PulseAudio)
 * simple web editor for screenshots (part of PHP script)
 
 # Requirements
@@ -93,7 +93,7 @@ HTTP auth is not required but you *really* should set it up, or eventually use y
 
 # Todo
 Feel free to suggest features, changes or even make your own pull request!
-* ~~per session signals (so you can run watch and use video recording without collision)~~
+* ~~per session signals (so you can run watch and video recording without collision)~~
 * ~~optional audio recording~~
 * easy to setup VAAPI/VDPAU encoding as default option (good performance on wider range of hardware)
 * better web-editor
