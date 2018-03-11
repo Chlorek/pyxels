@@ -92,7 +92,7 @@
                                 var y = event.clientY + document.body.scrollTop + document.documentElement.scrollTop - canvas.offsetTop;
 
                                 ctx.beginPath();
-                                ctx.arc(x, y, brushSize, 0, 2*Math.PI, false);
+                                ctx.arc(x, y, brushSize/2, 0, 2*Math.PI, false);
                                 ctx.fillStyle = color;
                                 ctx.fill();
                             }
@@ -104,6 +104,7 @@
                         }
 
                         function stopDraw(event) {
+                            dumpImage();
                             mouseDown = false;
                         }
 
@@ -119,6 +120,7 @@
                                 canvas.height = this.height;
                                 ctx = canvas.getContext("2d");
                                 ctx.drawImage(img, 0, 0);
+                                dumpImage();
                                 canvas.addEventListener("mousedown", startDraw, false);
                                 canvas.addEventListener("mouseup", stopDraw, false);
                                 canvas.addEventListener("mousemove", draw, false);
@@ -142,6 +144,31 @@
                             if(brushSize <= 0)
                                 brushSize = 2;
                             document.getElementById('brushSize').innerHTML = brushSize;
+                        }
+
+                        var changes = new Array();
+                        var changeIndex = 0;
+                        function dumpImage() {
+                            if(changeIndex < changes.length)
+                                changes.length = changeIndex;
+                            changes.push(canvas.toDataURL());
+                            ++changeIndex;
+                        }
+
+                        function undo() {
+                            if(changeIndex > 1) {
+                                var img = new Image();
+                                img.src = changes[--changeIndex-1];
+                                img.onload = function() { ctx.drawImage(img, 0, 0); };
+                            }
+                        }
+
+                        function redo() {
+                            if(changeIndex < changes.length) {
+                                var img = new Image();
+                                img.src = changes[changeIndex++];
+                                img.onload = function() { ctx.drawImage(img, 0, 0); };
+                            }
                         }
 
                         function save() {
@@ -172,6 +199,9 @@
                             <span class="highlight" onclick="smallerBrush()">-</span>
                             <span class="separator"></span>
                             <input id="colorPicker" type="color" value="#ff0000">
+                            <span class="highlight" onclick="undo()">Undo</span>
+                            <span class="highlight" onclick="redo()">Redo</span>
+                            <span class="separator"></span>
                             <span class="highlight" onclick="save()">Save</span>
                         </div>
                     </div>
