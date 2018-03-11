@@ -86,15 +86,26 @@
                         var brushSize = 10;
                         var mouseDown = false;
 
+                        var prevX = -1, prevY = -1;
                         function draw(event) {
                             if(mouseDown) {
                                 var x = event.clientX + document.body.scrollLeft + document.documentElement.scrollLeft - canvas.offsetLeft;
                                 var y = event.clientY + document.body.scrollTop + document.documentElement.scrollTop - canvas.offsetTop;
 
+                                if(prevX == -1) {
+                                    prevX = x;
+                                    prevY = y;
+                                }
                                 ctx.beginPath();
-                                ctx.arc(x, y, brushSize/2, 0, 2*Math.PI, false);
-                                ctx.fillStyle = color;
-                                ctx.fill();
+                                ctx.strokeStyle = color;
+                                ctx.lineWidth = brushSize;
+                                ctx.lineJoin = "round";
+                                ctx.moveTo(prevX, prevY);
+                                ctx.lineTo(x, y);
+                                ctx.closePath();
+                                ctx.stroke();
+                                prevX = x;
+                                prevY = y;
                             }
                         }
 
@@ -106,6 +117,7 @@
                         function stopDraw(event) {
                             dumpImage();
                             mouseDown = false;
+                            prevX = prevY = -1;
                         }
 
                         function updateColor(event) {
