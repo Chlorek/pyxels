@@ -1,7 +1,7 @@
 <?php
     /*
     pyxels - simple screen capture tool for Linux
-    Copyright (C) 2017 Chlorek
+    Copyright (C) 2017-2018 Chlorek
 
     This file is part of pyxels.
 
